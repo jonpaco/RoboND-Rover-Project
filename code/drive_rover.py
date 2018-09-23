@@ -16,11 +16,14 @@ import json
 import pickle
 import matplotlib.image as mpimg
 import time
-
+from threading import Timer
 # Import functions for perception and decision making
 from perception import perception_step
 from decision import decision_step
 from supporting_functions import update_rover, create_output_images
+from state import Stop
+from rover_timer import CancelSearch
+
 # Initialize socketio server and Flask application 
 # (learn more at: https://python-socketio.readthedocs.io/en/latest/)
 sio = socketio.Server()
@@ -42,6 +45,7 @@ class RoverState():
         self.total_time = None # To record total duration of naviagation
         self.img = None # Current camera image
         self.pos = None # Current position (x, y)
+        self.prev_pos = None
         self.yaw = None # Current yaw angle
         self.pitch = None # Current pitch angle
         self.roll = None # Current roll angle
@@ -52,7 +56,7 @@ class RoverState():
         self.nav_angles = None # Angles of navigable terrain pixels
         self.nav_dists = None # Distances of navigable terrain pixels
         self.ground_truth = ground_truth_3d # Ground truth worldmap
-        self.mode = 'forward' # Current mode (can be forward or stop)
+        self.mode = Stop() # Current mode (can be forward or stop)
         self.throttle_set = 0.2 # Throttle setting when accelerating
         self.brake_set = 10 # Brake setting when braking
         # The stop_forward and go_forward fields below represent total count
@@ -60,7 +64,7 @@ class RoverState():
         # when you can keep going and when you should stop.  Feel free to
         # get creative in adding new fields or modifying these!
         self.stop_forward = 50 # Threshold to initiate stopping
-        self.go_forward = 500 # Threshold to go forward again
+        self.go_forward = 55 # Threshold to go forward again
         self.max_vel = 2 # Maximum velocity (meters/second)
         # Image output from perception step
         # Update this image to display your intermediate analysis steps
@@ -77,10 +81,10 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
-        self.pickup_rock_mode = False
-        self.look_for_rock = False
         self.located_rock = False
         self.rock_angle = 0
+        self.cancel_search = CancelSearch([self])
+
 # Initialize our rover 
 Rover = RoverState()
 
@@ -103,7 +107,7 @@ def telemetry(sid, data):
         fps = frame_counter
         frame_counter = 0
         second_counter = time.time()
-    print("Current FPS: {}".format(fps))
+    #print("Current FPS: {}".format(fps))
 
     if data:
         global Rover
@@ -154,7 +158,7 @@ def telemetry(sid, data):
 
 @sio.on('connect')
 def connect(sid, environ):
-    print("connect ", sid)
+    #print("connect ", sid)
     send_control((0, 0, 0), '', '')
     sample_data = {}
     sio.emit(
@@ -179,7 +183,7 @@ def send_control(commands, image_string1, image_string2):
     eventlet.sleep(0)
 # Define a function to send the "pickup" command 
 def send_pickup():
-    print("Picking up")
+    #print("Picking up")
     pickup = {}
     sio.emit(
         "pickup",
@@ -199,15 +203,16 @@ if __name__ == '__main__':
     
     #os.system('rm -rf IMG_stream/*')
     if args.image_folder != '':
-        print("Creating image folder at {}".format(args.image_folder))
+        #print("Creating image folder at {}".format(args.image_folder))
         if not os.path.exists(args.image_folder):
             os.makedirs(args.image_folder)
         else:
             shutil.rmtree(args.image_folder)
             os.makedirs(args.image_folder)
-        print("Recording this run ...")
+        #print("Recording this run ...")
     else:
-        print("NOT recording this run ...")
+        pass
+        #print("NOT recording this run ...")
     
     # wrap Flask application with socketio's middleware
     app = socketio.Middleware(sio, app)

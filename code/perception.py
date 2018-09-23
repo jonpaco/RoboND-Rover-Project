@@ -147,24 +147,16 @@ def perception_step(Rover):
 
     # 7) Update Rover worldmap (to be displayed on right side of screen)
     Rover.worldmap[y_pix_world, x_pix_world, 2] += 10
-    Rover.worldmap[y_rock_pix_world, x_rock_pix_world, 1] += 5
-
-    nav_terrain = Rover.worldmap[:, :, 2] % 10 >= 2
-    Rover.worldmap[nav_terrain, 0] = 0
+    Rover.worldmap[y_rock_pix_world, x_rock_pix_world, 1] += 1
     Rover.worldmap[y_obs_pix_world, x_obs_pix_world, 0] += 1
+
+    if rocks.any():
+        Rover.located_rock = True
 
     # 8) Convert rover-centric pixel positions to polar coordinates
     # Update Rover pixel distances and angles
         # Rover.nav_dists = rover_centric_pixel_distances
         # Rover.nav_angles = rover_centric_angles
-    if rocks.any():
-        rock_dist, rock_angle = to_polar_coords(x_rock_pix, y_rock_pix)
-        Rover.nav_dists = rock_dist
-        Rover.nav_angles = rock_angle
-        Rover.look_for_rock = True
-    elif Rover.located_rock:
-        Rover.nav_angles = Rover.rock_angle
-    else:
-        Rover.nav_dists, Rover.nav_angles = to_polar_coords(xpix, ypix)
+    Rover.nav_dists, Rover.nav_angles = to_polar_coords(xpix, ypix)
     
     return Rover
