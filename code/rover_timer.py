@@ -1,6 +1,6 @@
 import numpy as np
 from threading import Timer
-from state import Stop
+from state import Stop, Breakout
 
 
 def event_cancel_search(args):
@@ -8,6 +8,9 @@ def event_cancel_search(args):
     args[0].located_rock = False
     args[0].cancel_search.stop()
 
+def event_stop_breakout(args):
+    args[0].mode = Breakout()
+    args[0].stop_breakout.stop()
 
 class RoverTimer(Timer):
     """
@@ -19,7 +22,8 @@ class RoverTimer(Timer):
         self.running = False
         self.interval = interval
         self.action = action
-        self.timer = Timer(interval, action, args=timer_args)
+        self.timer_args = timer_args
+        self.timer = None
 
     def __repr__(self):
         """
@@ -38,9 +42,10 @@ class RoverTimer(Timer):
         Handle events that are delegated to this State.
         """
         if not self.running:
-            self.timer.start()
             self.running = True
-    
+            self.timer = Timer(self.interval, self.action, args=self.timer_args)
+            self.timer.start()
+
     def stop(self):
         if self.running:
             self.timer.cancel()
@@ -50,3 +55,9 @@ class CancelSearch(RoverTimer):
 
     def __init__(self, *args):
         RoverTimer.__init__(self, 60, event_cancel_search, *args)
+
+
+class StopBreakout(RoverTimer):
+
+    def __init__(self, *args):
+        RoverTimer.__init__(self, 60, event_stop_breakout, *args)

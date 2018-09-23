@@ -152,6 +152,10 @@ def perception_step(Rover):
 
     if rocks.any():
         Rover.located_rock = True
+        Rover.rock_angle = to_polar_coords(x_rock_pix, y_rock_pix)
+    else:
+        Rover.located_rock = False
+        Rover.rock_angle = None
 
     # 8) Convert rover-centric pixel positions to polar coordinates
     # Update Rover pixel distances and angles

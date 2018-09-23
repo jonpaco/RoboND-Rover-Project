@@ -102,8 +102,36 @@ class Search(State):
         Handle events that are delegated to this State.
         """
         # If we're in stop mode but still moving keep braking
-        if rover.vel > 0.2:
-            move_stop(rover)
-        # If we're not moving (vel < 0.2) then do something else
+        if rover.rock_angle:
+            # If mode is forward, navigable terrain looks good 
+            # and velocity is below max, then throttle 
+            if rover.vel < rover.max_vel:
+                # Set throttle value to throttle setting
+                rover.throttle = rover.throttle_set
+            else: # Else coast
+                rover.throttle = 0
+            rover.brake = 0
+            # Set steering to average angle clipped to the range +/- 15
+            rover.steer = np.clip(np.mean(rover.rock_angle * 180/np.pi), -15, 15)
         elif rover.vel <= 0.2:
             move_turnaround(rover)
+
+class Breakout(State):
+    """
+    Processes the breakout state class.
+    """
+
+    def __init__(self):
+        State.__init__(self)
+        self.turn_tries = 0
+
+    def evaluate(self, rover):
+        """
+        Handle events that are delegated to this State.
+        """
+        if self.turn_tries < 80:
+            move_turnaround(rover)
+            self.turn_tries += 1
+        elif len(rover.nav_angles) >= rover.go_forward:
+            move_forward(rover)
+            rover.mode = Forward()

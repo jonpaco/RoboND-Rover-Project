@@ -22,7 +22,7 @@ from perception import perception_step
 from decision import decision_step
 from supporting_functions import update_rover, create_output_images
 from state import Stop
-from rover_timer import CancelSearch
+from rover_timer import CancelSearch, StopBreakout
 
 # Initialize socketio server and Flask application 
 # (learn more at: https://python-socketio.readthedocs.io/en/latest/)
@@ -84,6 +84,7 @@ class RoverState():
         self.located_rock = False
         self.rock_angle = 0
         self.cancel_search = CancelSearch([self])
+        self.stop_breakout = StopBreakout([self])
 
 # Initialize our rover 
 Rover = RoverState()
