@@ -1,6 +1,6 @@
 import numpy as np
 from threading import Timer
-from state import Stop, Breakout
+from state import Stop, Breakout, Loop
 
 
 def event_cancel_search(args):
@@ -11,6 +11,10 @@ def event_cancel_search(args):
 def event_stop_breakout(args):
     args[0].mode = Breakout()
     args[0].stop_breakout.stop()
+
+def event_cancel_loop(args):
+    args[0].mode = Loop()
+    args[0].cancel_loop.stop()
 
 class RoverTimer(Timer):
     """
@@ -54,10 +58,15 @@ class RoverTimer(Timer):
 class CancelSearch(RoverTimer):
 
     def __init__(self, *args):
-        RoverTimer.__init__(self, 60, event_cancel_search, *args)
+        RoverTimer.__init__(self, 90, event_cancel_search, *args)
 
 
 class StopBreakout(RoverTimer):
 
     def __init__(self, *args):
-        RoverTimer.__init__(self, 60, event_stop_breakout, *args)
+        RoverTimer.__init__(self, 10, event_stop_breakout, *args)
+
+class CancelLoop(RoverTimer):
+
+    def __init__(self, *args):
+        RoverTimer.__init__(self, 5, event_cancel_loop, *args)

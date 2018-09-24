@@ -21,9 +21,8 @@ from threading import Timer
 from perception import perception_step
 from decision import decision_step
 from supporting_functions import update_rover, create_output_images
+from rover_timer import CancelSearch, StopBreakout, CancelLoop
 from state import Stop
-from rover_timer import CancelSearch, StopBreakout
-
 # Initialize socketio server and Flask application 
 # (learn more at: https://python-socketio.readthedocs.io/en/latest/)
 sio = socketio.Server()
@@ -83,8 +82,10 @@ class RoverState():
         self.send_pickup = False # Set to True to trigger rock pickup
         self.located_rock = False
         self.rock_angle = 0
+        self.rock_dist = 0
         self.cancel_search = CancelSearch([self])
         self.stop_breakout = StopBreakout([self])
+        self.cancel_loop = CancelLoop([self])
 
 # Initialize our rover 
 Rover = RoverState()

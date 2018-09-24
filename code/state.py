@@ -1,4 +1,5 @@
 import numpy as np
+from perception import to_polar_coords
 
 def move_forward(rover):
     # If mode is forward, navigable terrain looks good 
@@ -94,7 +95,7 @@ class Stop(State):
 
 class Search(State):
     """
-    Processes the stop state class.
+    Processes the search state class.
     """
 
     def evaluate(self, rover):
@@ -102,19 +103,64 @@ class Search(State):
         Handle events that are delegated to this State.
         """
         # If we're in stop mode but still moving keep braking
-        if rover.rock_angle:
-            # If mode is forward, navigable terrain looks good 
-            # and velocity is below max, then throttle 
-            if rover.vel < rover.max_vel:
-                # Set throttle value to throttle setting
-                rover.throttle = rover.throttle_set
-            else: # Else coast
-                rover.throttle = 0
+        if rover.vel > 0.2:
+            move_stop(rover)
+        else:
+            rover.mode = Collect()
+
+class Collect(State):
+    """
+    Processes the search state class.
+    """
+    no_sight = 0
+    max_no_sight = 80
+    angle = None
+
+    def evaluate(self, rover):
+        """
+        Handle events that are delegated to this State.
+        """
+        # If we're in stop mode but still moving keep braking
+        if rover.rock_angle is not None:
+            if np.mean(rover.rock_dist) > 10:
+                if rover.vel < rover.max_vel:
+                    rover.throttle = rover.throttle_set
+                else:
+                    rover.throttle = 0
+            else:
+                move_stop(rover)
             rover.brake = 0
             # Set steering to average angle clipped to the range +/- 15
             rover.steer = np.clip(np.mean(rover.rock_angle * 180/np.pi), -15, 15)
-        elif rover.vel <= 0.2:
-            move_turnaround(rover)
+        elif self.no_sight < self.max_no_sight:
+            if rover.vel < rover.max_vel:
+                rover.throttle = rover.throttle_set
+                self.no_sight += 1
+            else:
+                rover.throttle = 0
+            rover.brake = 0
+        else:
+            move_stop(rover)
+            rover.mode = Rotate()
+
+class Rotate(State):
+    no_sight = 0
+    max_no_sight = 80
+    angle = None
+
+    def evaluate(self, rover):
+        """
+        Handle events that are delegated to this State.
+        """
+        if self.no_sight < self.max_no_sight:
+            rover.throttle = 0
+            # Release the brake to allow turning
+            rover.brake = 0
+            # Turn range is +/- 15 degrees, when stopped the next line will induce 4-wheel turning
+            rover.steer = -5 # Could be more clever here about which way to turn
+            self.no_sight += 1
+        else:
+            rover.mode = Collect()
 
 class Breakout(State):
     """
@@ -129,9 +175,31 @@ class Breakout(State):
         """
         Handle events that are delegated to this State.
         """
-        if self.turn_tries < 80:
+        if self.turn_tries < 50:
             move_turnaround(rover)
             self.turn_tries += 1
         elif len(rover.nav_angles) >= rover.go_forward:
             move_forward(rover)
             rover.mode = Forward()
+
+class Loop(State):
+    """
+    Processes the loop state class.
+    """
+
+    def __init__(self):
+        State.__init__(self)
+        self.turn_tries = 0
+        self.turn_tries_max = 80
+
+    def evaluate(self, rover):
+        """
+        Handle events that are delegated to this State.
+        """
+        if self.turn_tries >= self.turn_tries_max:
+            rover.mode = Forward()
+        elif self.turn_tries < (self.turn_tries_max / 2):
+            move_turnaround(rover)
+        else:
+            move_forward(rover)
+        self.turn_tries += 1
