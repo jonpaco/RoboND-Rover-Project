@@ -126,7 +126,7 @@ def perception_step(Rover):
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
     navigable, obs = color_thresh(warped)
     obstacles = np.absolute(np.float32(navigable) - 1) * mask
-    rocks = find_rocks(warped, rgb_thresh=(160, 134, 10))
+    rocks = find_rocks(warped, rgb_thresh=(150, 120, 10))
 
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
         # Example: Rover.vision_image[:,:,0] = obstacle color-thresholded binary image
@@ -141,23 +141,37 @@ def perception_step(Rover):
     x_obs_pix, y_obs_pix = rover_coords(obstacles)
     x_rock_pix, y_rock_pix = rover_coords(rocks)
 
+    x_pix_world, y_pix_world = pix_to_world(xpix, ypix, Rover.pos[0], Rover.pos[1], Rover.yaw, Rover.worldmap.shape[1], 10)
+    x_obs_pix_world, y_obs_pix_world = pix_to_world(x_obs_pix, y_obs_pix, Rover.pos[0], Rover.pos[1],  Rover.yaw, Rover.worldmap.shape[1], 10)
+    x_rock_pix_world, y_rock_pix_world = pix_to_world(x_rock_pix, y_rock_pix, Rover.pos[0], Rover.pos[1],  Rover.yaw, Rover.worldmap.shape[1], 10)
+
     # 7) Update Rover worldmap (to be displayed on right side of screen)
     if not Rover.located_rock and not Rover.stop_breakout.running and not Rover.cancel_loop.running:
         if np.absolute(Rover.pitch) < 1 and np.absolute(Rover.roll) < 1: 
             # 6) Convert rover-centric pixel values to world coordinates
-            x_pix_world, y_pix_world = pix_to_world(xpix, ypix, Rover.pos[0], Rover.pos[1], Rover.yaw, Rover.worldmap.shape[1], 10)
-            x_obs_pix_world, y_obs_pix_world = pix_to_world(x_obs_pix, y_obs_pix, Rover.pos[0], Rover.pos[1],  Rover.yaw, Rover.worldmap.shape[1], 10)
-            x_rock_pix_world, y_rock_pix_world = pix_to_world(x_rock_pix, y_rock_pix, Rover.pos[0], Rover.pos[1],  Rover.yaw, Rover.worldmap.shape[1], 10)
+            Rover.worldmap_filter[y_pix_world, x_pix_world, 2] += 1
             
-            Rover.worldmap[y_pix_world, x_pix_world, 2] += 1
+            Rover.worldmap_filter[y_obs_pix_world, x_obs_pix_world, 0] += 1
+            nav_terrain = Rover.worldmap_filter[:,:,2] > 5
+            obs_terrain = Rover.worldmap_filter[:,:,0] > 5
+
+            Rover.worldmap[nav_terrain, 2] += 1
             Rover.worldmap[y_rock_pix_world, x_rock_pix_world, 1] += 1
-            Rover.worldmap[y_obs_pix_world, x_obs_pix_world, 0] += 1
+            Rover.worldmap[obs_terrain, 0] += 1
+
             nav_terrain = Rover.worldmap[:,:,2] > 15
             Rover.worldmap[nav_terrain, 0] = 0
 
+    Rover.worldmap_filter[y_rock_pix_world, x_rock_pix_world, 1] += 1
+    rock_terrain = Rover.worldmap_filter[:,:,1] > 3
+    Rover.worldmap[rock_terrain, 1] += 1
+
     if rocks.any():
-        Rover.located_rock = True
         Rover.rock_dist, Rover.rock_angle = to_polar_coords(x_rock_pix, y_rock_pix)
+        Rover.rock_pos = (x_rock_pix_world, y_rock_pix_world)
+        Rover.rock_angle -= 0.1
+        if np.mean(Rover.rock_dist) < 30:
+            Rover.located_rock = True
     else:
         Rover.rock_dist, Rover.rock_angle= (None, None)
 
@@ -166,5 +180,5 @@ def perception_step(Rover):
         # Rover.nav_dists = rover_centric_pixel_distances
         # Rover.nav_angles = rover_centric_angles
     Rover.nav_dists, Rover.nav_angles = to_polar_coords(xpix, ypix)
-    
+    Rover.nav_angles -= 0.1
     return Rover

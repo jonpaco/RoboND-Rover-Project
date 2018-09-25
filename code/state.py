@@ -26,6 +26,12 @@ def move_turnaround(rover):
     # Turn range is +/- 15 degrees, when stopped the next line will induce 4-wheel turning
     rover.steer = -15 # Could be more clever here about which way to turn
 
+def calc_rock_pos(rover):
+    diff_list = [a_i - b_i for a_i, b_i in zip(rover.rock_pos, rover.pos)]
+    dist = np.linalg.norm(diff_list)
+    rock_pos = (dist * np.cos(rover.yaw) + rover.pos[0], rover.pos[1] - dist * np.sin(rover.yaw) )
+    return to_polar_coords(np.real(rock_pos[0]), np.real(rock_pos[1]))
+
 class State(object):
     """
     Define a state object which provides some utility functions for the
@@ -122,7 +128,7 @@ class Collect(State):
         """
         # If we're in stop mode but still moving keep braking
         if rover.rock_angle is not None:
-            if np.mean(rover.rock_dist) > 10:
+            if np.mean(rover.rock_dist) >= 5:
                 if rover.vel < rover.max_vel:
                     rover.throttle = rover.throttle_set
                 else:
@@ -132,13 +138,6 @@ class Collect(State):
             rover.brake = 0
             # Set steering to average angle clipped to the range +/- 15
             rover.steer = np.clip(np.mean(rover.rock_angle * 180/np.pi), -15, 15)
-        elif self.no_sight < self.max_no_sight:
-            if rover.vel < rover.max_vel:
-                rover.throttle = rover.throttle_set
-                self.no_sight += 1
-            else:
-                rover.throttle = 0
-            rover.brake = 0
         else:
             move_stop(rover)
             rover.mode = Rotate()
@@ -152,13 +151,12 @@ class Rotate(State):
         """
         Handle events that are delegated to this State.
         """
-        if self.no_sight < self.max_no_sight:
+        if rover.rock_angle is None:
             rover.throttle = 0
             # Release the brake to allow turning
             rover.brake = 0
             # Turn range is +/- 15 degrees, when stopped the next line will induce 4-wheel turning
-            rover.steer = -5 # Could be more clever here about which way to turn
-            self.no_sight += 1
+            _, rover.steer =  calc_rock_pos(rover)# Could be more clever here about which way to turn
         else:
             rover.mode = Collect()
 

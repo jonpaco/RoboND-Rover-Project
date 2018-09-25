@@ -30,15 +30,14 @@ def decision_step(Rover):
         print("Stoping breakout timer...")
         Rover.stop_breakout.stop()
 
-    if Rover.steer == Rover.prev_steer and \
-    Rover.vel == Rover.max_vel and \
-    np.absolute(Rover.roll) > 1 and \
-    np.absolute(Rover.pitch) > 1:
-        if not Rover.stop_breakout.running and \
-        not Rover.cancel_search.running and \
-        not Rover.cancel_loop.running:
-            print("starting loop timer...")
-            Rover.cancel_loop.start()
+    if (Rover.vel == Rover.max_vel):
+        if (np.absolute(Rover.roll) >= 0.3 or \
+        np.absolute(Rover.pitch) >= 0.3):
+            if not Rover.stop_breakout.running and \
+            not Rover.cancel_search.running and \
+            not Rover.cancel_loop.running:
+                print("starting loop timer...")
+                Rover.cancel_loop.start()
     elif Rover.cancel_loop.running:
         print("stoping loop timer...")
         Rover.cancel_loop.stop()
@@ -49,7 +48,7 @@ def decision_step(Rover):
     if Rover.near_sample and Rover.vel == 0 and not Rover.picking_up:
         Rover.send_pickup = True
         Rover.located_rock = False
-        Rover.cancel_search.action([Rover])
-    
+        Rover.mode = Stop()
+
     return Rover
 
