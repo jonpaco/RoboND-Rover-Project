@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 def move_forward(rover):
     # If mode is forward, navigable terrain looks good 
@@ -118,8 +119,7 @@ class Collect(State):
     Processes the search state class.
     """
     no_sight = 0
-    max_no_sight = 200
-    angle = None
+    max_no_sight = 5
 
     def evaluate(self, rover):
         """
@@ -127,7 +127,7 @@ class Collect(State):
         """
         # If we're in stop mode but still moving keep braking
         if rover.rock_angle is not None:
-            if calc_rock_dis(rover) > 2:
+            if calc_rock_dis(rover) > 3:
                 if rover.vel < rover.max_vel / 2:
                     rover.throttle = rover.throttle_set
                 else:
@@ -138,18 +138,17 @@ class Collect(State):
             else:
                 move_stop(rover)
         else:
-            if self.no_sight < self.max_no_sight:
+            if self.no_sight == 0:
+                self.no_sight = time.time()
+            elif (time.time() - self.no_sight) < self.max_no_sight:
                 move_stop(rover)
                 rover.located_rock = False
                 rover.cancel_search.stop()
                 rover.mode = Forward()
-            else:
-                self.no_sight += 1
 
 class Rotate(State):
-    no_sight = 0
-    max_no_sight = 80
-    angle = None
+    no_sight = time.time()
+    max_no_sight = 5
 
     def evaluate(self, rover):
         """
@@ -171,15 +170,14 @@ class Breakout(State):
 
     def __init__(self):
         State.__init__(self)
-        self.turn_tries = 0
+        self.turn_tries = time.time()
 
     def evaluate(self, rover):
         """
         Handle events that are delegated to this State.
         """
-        if self.turn_tries < 50:
+        if  (time.time() - self.turn_tries) < 5:
             move_turnaround(rover)
-            self.turn_tries += 1
         elif len(rover.nav_angles) >= rover.go_forward:
             move_forward(rover)
             rover.mode = Forward()
@@ -191,17 +189,16 @@ class Loop(State):
 
     def __init__(self):
         State.__init__(self)
-        self.turn_tries = 0
-        self.turn_tries_max = 80
+        self.turn_tries = time.time()
+        self.turn_tries_max = 5
 
     def evaluate(self, rover):
         """
         Handle events that are delegated to this State.
         """
-        if self.turn_tries >= self.turn_tries_max:
+        if (time.time() - self.turn_tries) >= self.turn_tries_max:
             rover.mode = Forward()
-        elif self.turn_tries < (self.turn_tries_max / 2):
+        elif (time.time() - self.turn_tries) < (self.turn_tries_max / 2):
             move_turnaround(rover)
         else:
             move_forward(rover)
-        self.turn_tries += 1

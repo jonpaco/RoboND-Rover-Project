@@ -147,6 +147,7 @@ def perception_step(Rover):
     x_rock_pix_world, y_rock_pix_world = pix_to_world(x_rock_pix, y_rock_pix, Rover.pos[0], Rover.pos[1],  Rover.yaw, Rover.worldmap.shape[1], 10)
 
     # 7) Update Rover worldmap (to be displayed on right side of screen)
+    Rover.worldmap[y_rock_pix_world, x_rock_pix_world, 1] += 10
     if not Rover.located_rock and not Rover.stop_breakout.running and not Rover.cancel_loop.running:
         if np.absolute(Rover.pitch) < 1 and np.absolute(Rover.roll) < 1: 
             # 6) Convert rover-centric pixel values to world coordinates
@@ -162,14 +163,13 @@ def perception_step(Rover):
             nav_terrain = Rover.worldmap[:,:,2] > 15
             Rover.worldmap[nav_terrain, 0] = 0
 
-    Rover.worldmap[y_rock_pix_world, x_rock_pix_world, 1] += 5
-
     if rocks.any():
         rock_dist, rock_angle = to_polar_coords(x_rock_pix, y_rock_pix)
         Rover.rock_angle = np.min(rock_angle)
         Rover.rock_dist = np.min(rock_dist)
         Rover.rock_pos = (x_rock_pix_world, y_rock_pix_world)
-        Rover.located_rock = True
+        if not Rover.near_sample:
+            Rover.located_rock = True
     else:
         Rover.rock_angle = None
         Rover.rock_dist = None

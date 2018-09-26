@@ -69,4 +69,4 @@ class StopBreakout(RoverTimer):
 class CancelLoop(RoverTimer):
 
     def __init__(self, *args):
-        RoverTimer.__init__(self, 10, event_cancel_loop, *args)
+        RoverTimer.__init__(self, 30, event_cancel_loop, *args)
