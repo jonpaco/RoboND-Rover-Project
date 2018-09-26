@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from state import calc_rock_dis
 
 # Identify pixels above the threshold
 # Threshold of RGB > 160 does a nice job of identifying ground pixels only
@@ -126,7 +127,7 @@ def perception_step(Rover):
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
     navigable, obs = color_thresh(warped)
     obstacles = np.absolute(np.float32(navigable) - 1) * mask
-    rocks = find_rocks(warped, rgb_thresh=(150, 120, 10))
+    rocks = find_rocks(Rover.img, rgb_thresh=(100,104,50))
 
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
         # Example: Rover.vision_image[:,:,0] = obstacle color-thresholded binary image
@@ -156,25 +157,22 @@ def perception_step(Rover):
             obs_terrain = Rover.worldmap_filter[:,:,0] > 5
 
             Rover.worldmap[nav_terrain, 2] += 1
-            Rover.worldmap[y_rock_pix_world, x_rock_pix_world, 1] += 1
             Rover.worldmap[obs_terrain, 0] += 1
 
             nav_terrain = Rover.worldmap[:,:,2] > 15
             Rover.worldmap[nav_terrain, 0] = 0
 
-    Rover.worldmap_filter[y_rock_pix_world, x_rock_pix_world, 1] += 1
-    rock_terrain = Rover.worldmap_filter[:,:,1] > 3
-    Rover.worldmap[rock_terrain, 1] += 1
+    Rover.worldmap[y_rock_pix_world, x_rock_pix_world, 1] += 5
 
     if rocks.any():
-        Rover.rock_dist, Rover.rock_angle = to_polar_coords(x_rock_pix, y_rock_pix)
+        rock_dist, rock_angle = to_polar_coords(x_rock_pix, y_rock_pix)
+        Rover.rock_angle = np.min(rock_angle)
+        Rover.rock_dist = np.min(rock_dist)
         Rover.rock_pos = (x_rock_pix_world, y_rock_pix_world)
-        Rover.rock_angle -= 0.1
-        if np.mean(Rover.rock_dist) < 30:
-            Rover.located_rock = True
+        Rover.located_rock = True
     else:
-        Rover.rock_dist, Rover.rock_angle= (None, None)
-
+        Rover.rock_angle = None
+        Rover.rock_dist = None
     # 8) Convert rover-centric pixel positions to polar coordinates
     # Update Rover pixel distances and angles
         # Rover.nav_dists = rover_centric_pixel_distances

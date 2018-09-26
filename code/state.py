@@ -1,5 +1,4 @@
 import numpy as np
-from perception import to_polar_coords
 
 def move_forward(rover):
     # If mode is forward, navigable terrain looks good 
@@ -26,11 +25,11 @@ def move_turnaround(rover):
     # Turn range is +/- 15 degrees, when stopped the next line will induce 4-wheel turning
     rover.steer = -15 # Could be more clever here about which way to turn
 
-def calc_rock_pos(rover):
-    diff_list = [a_i - b_i for a_i, b_i in zip(rover.rock_pos, rover.pos)]
-    dist = np.linalg.norm(diff_list)
-    rock_pos = (dist * np.cos(rover.yaw) + rover.pos[0], rover.pos[1] - dist * np.sin(rover.yaw) )
-    return to_polar_coords(np.real(rock_pos[0]), np.real(rock_pos[1]))
+def calc_rock_dis(rover):
+    x_min = np.min(rover.rock_pos[0]) - rover.pos[0]
+    y_min = np.min(rover.rock_pos[1]) - rover.pos[1]
+    dist = np.sqrt(x_min * x_min + y_min * y_min)
+    return dist
 
 class State(object):
     """
@@ -119,7 +118,7 @@ class Collect(State):
     Processes the search state class.
     """
     no_sight = 0
-    max_no_sight = 80
+    max_no_sight = 200
     angle = None
 
     def evaluate(self, rover):
@@ -128,19 +127,24 @@ class Collect(State):
         """
         # If we're in stop mode but still moving keep braking
         if rover.rock_angle is not None:
-            if np.mean(rover.rock_dist) >= 5:
-                if rover.vel < rover.max_vel:
+            if calc_rock_dis(rover) > 2:
+                if rover.vel < rover.max_vel / 2:
                     rover.throttle = rover.throttle_set
                 else:
                     rover.throttle = 0
+                rover.brake = 0
+                # Set steering to average angle clipped to the range +/- 15
+                rover.steer = np.clip(np.min(rover.rock_angle * 180/np.pi), -15, 15)
             else:
                 move_stop(rover)
-            rover.brake = 0
-            # Set steering to average angle clipped to the range +/- 15
-            rover.steer = np.clip(np.mean(rover.rock_angle * 180/np.pi), -15, 15)
         else:
-            move_stop(rover)
-            rover.mode = Rotate()
+            if self.no_sight < self.max_no_sight:
+                move_stop(rover)
+                rover.located_rock = False
+                rover.cancel_search.stop()
+                rover.mode = Forward()
+            else:
+                self.no_sight += 1
 
 class Rotate(State):
     no_sight = 0
@@ -156,7 +160,7 @@ class Rotate(State):
             # Release the brake to allow turning
             rover.brake = 0
             # Turn range is +/- 15 degrees, when stopped the next line will induce 4-wheel turning
-            _, rover.steer =  calc_rock_pos(rover)# Could be more clever here about which way to turn
+            _, rover.steer =  (0,-4)# Could be more clever here about which way to turn
         else:
             rover.mode = Collect()
 
